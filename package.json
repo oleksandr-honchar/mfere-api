@@ -1,0 +1,27 @@
+{
+  "name": "mfere-api",
+  "version": "1.0.0",
+  "description": "Backend-сервіс на Node.js для доступу до аналітичних даних системи MFERE. Цей сервіс надає RESTful API для взаємодії з шарами Silver та Gold бази даних `mfere_prod`.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "Oleksandr Honchar <figules@gmail.com>",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/client": "^7.8.0",
+    "fastify": "^5.10.0",
+    "prisma": "^7.8.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^6.0.3"
+  }
+}
