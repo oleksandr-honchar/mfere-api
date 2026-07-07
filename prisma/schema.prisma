@@ -1,0 +1,260 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "./generated/client"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["analytics", "dw", "staging"]
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model factor_dataset {
+  company_id        BigInt
+  date              DateTime @db.Timestamp(6)
+  mom_1m            Float?
+  mom_3m            Float?
+  mom_6m            Float?
+  mom_12m           Float?
+  mom_skip1m        Float?
+  mom_acc           Float?
+  rev_1w            Float?
+  vol_3m            Float?
+  vol_12m           Float?
+  down_vol          Float?
+  beta              Float?
+  idio_vol          Float?
+  max_drawdown      Float?
+  earnings_yield    Float?
+  book_to_price     Float?
+  sales_to_price    Float?
+  cf_to_price       Float?
+  fcf_yield         Float?
+  ev_ebitda         Float?
+  ebitda_yield      Float?
+  roe               Float?
+  roa               Float?
+  gross_margin      Float?
+  op_margin         Float?
+  profit_stability  Float?
+  debt_to_equity    Float?
+  int_coverage      Float?
+  rev_growth        Float?
+  eps_growth        Float?
+  asset_growth      Float?
+  capex_growth      Float?
+  opinc_growth      Float?
+  sales_acc         Float?
+  capex_ratio       Float?
+  inventory_growth  Float?
+  accruals          Float?
+  turnover          Float?
+  dollar_vol        Float?
+  illiq             Float?
+  vol_vol           Float?
+  term_spread       Float?
+  credit_spread     Float?
+  cpi_growth        Float?
+  unrate            Float?
+  nfci              Float?
+  gdp_growth        Float?
+  target_return_60d Float?
+
+  @@unique([company_id, date], map: "factor_dataset_pk")
+  @@schema("analytics")
+}
+
+model dim_company {
+  company_id      Int           @id @default(autoincrement())
+  cik             String        @unique @db.VarChar(20)
+  ticker          String?       @db.VarChar(20)
+  yf_ticker       String?
+  company_name    String
+  exchange        String?       @db.VarChar(20)
+  gics_sector     String?       @db.VarChar(80)
+  gics_industry   String?       @db.VarChar(120)
+  is_active       Boolean       @default(true)
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime      @default(now()) @db.Timestamptz(6)
+  sic_code        Int?
+  sic_description String?
+  fiscal_year_end String?
+  fact_prices     fact_prices[]
+  universe        universe?
+
+  @@index([cik], map: "idx_dim_company_cik")
+  @@index([gics_sector], map: "idx_dim_company_sector")
+  @@index([ticker], map: "idx_dim_company_ticker")
+  @@schema("dw")
+}
+
+model dim_date {
+  date_id              Int      @id
+  date                 DateTime @unique @db.Date
+  year                 Int      @db.SmallInt
+  quarter              Int      @db.SmallInt
+  month                Int      @db.SmallInt
+  month_name           String   @db.VarChar(12)
+  week_of_year         Int      @db.SmallInt
+  day_of_month         Int      @db.SmallInt
+  day_of_week          Int      @db.SmallInt
+  day_name             String   @db.VarChar(12)
+  is_weekend           Boolean
+  is_trading_day       Boolean  @default(false)
+  is_trading_month_end Boolean  @default(false)
+  fiscal_year          Int?     @db.SmallInt
+  fiscal_quarter       Int?     @db.SmallInt
+
+  @@index([date], map: "idx_dim_date_date")
+  @@index([is_trading_month_end], map: "idx_dim_date_month_end", where: raw("(is_trading_month_end = true)"))
+  @@index([year, quarter], map: "idx_dim_date_year_qtr")
+  @@schema("dw")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model dim_tag_routing {
+  company_id   BigInt?
+  ticker       String?
+  sic_code     BigInt?
+  sector       String?
+  concept      String?
+  best_tag     String?
+  fallback_tag String?
+  sic_bucket   String?
+  policy       String?
+
+  @@ignore
+  @@schema("dw")
+}
+
+model fact_fundamentals {
+  company_id     Int
+  concept        String
+  period_end     DateTime @db.Date
+  filing_date    DateTime @db.Date
+  value          Decimal? @db.Decimal
+  unit           String?
+  source_tag     String?
+  policy         String?
+  form           String?
+  data_quality   String   @default("ok")
+  is_restatement Boolean  @default(false)
+
+  @@id([company_id, concept, period_end, filing_date], map: "pk_fact_fundamentals")
+  @@index([company_id, concept, filing_date(sort: Desc)], map: "idx_fc_company_concept_filing")
+  @@index([company_id, period_end], map: "idx_fc_company_period")
+  @@schema("dw")
+}
+
+model fact_macro {
+  macro_id  BigInt   @id @default(autoincrement())
+  series_id String   @db.VarChar(30)
+  date      DateTime @db.Date
+  value     Decimal? @db.Decimal(20, 8)
+
+  @@unique([series_id, date])
+  @@index([date], map: "idx_fact_macro_date")
+  @@index([series_id, date], map: "idx_fact_macro_series_date")
+  @@schema("dw")
+}
+
+model fact_prices {
+  price_id    BigInt      @id @default(autoincrement())
+  company_id  Int
+  trade_date  DateTime    @db.Date
+  open        Decimal?    @db.Decimal(18, 6)
+  high        Decimal?    @db.Decimal(18, 6)
+  low         Decimal?    @db.Decimal(18, 6)
+  close       Decimal?    @db.Decimal(18, 6)
+  adj_close   Decimal     @db.Decimal(18, 6)
+  volume      Decimal?    @db.Decimal(20, 0)
+  dim_company dim_company @relation(fields: [company_id], references: [company_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([company_id, trade_date])
+  @@index([company_id, trade_date], map: "idx_fact_prices_company_date")
+  @@index([trade_date], map: "idx_fact_prices_date")
+  @@schema("dw")
+}
+
+model universe {
+  company_id  Int         @id(map: "pk_universe")
+  added_at    DateTime    @default(now()) @db.Timestamptz(6)
+  dim_company dim_company @relation(fields: [company_id], references: [company_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_universe_company")
+
+  @@schema("dw")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model raw_company_map {
+  cik          String?
+  ticker       String?
+  yf_ticker    String?
+  company_name String?
+  exchange     String?
+
+  @@index([ticker], map: "idx_raw_company_map_ticker")
+  @@index([yf_ticker], map: "idx_raw_company_map_yticker")
+  @@ignore
+  @@schema("staging")
+}
+
+model raw_fundamentals {
+  id           BigInt    @id @default(autoincrement())
+  cik          String    @db.VarChar(20)
+  ticker       String?   @db.VarChar(20)
+  taxonomy     String    @db.VarChar(30)
+  tag          String    @db.VarChar(200)
+  unit         String    @db.VarChar(30)
+  period_start DateTime? @db.Date
+  period_end   DateTime  @db.Date
+  filing_date  DateTime  @db.Date
+  accession    String?
+  form         String?   @db.VarChar(20)
+  value        Decimal?  @db.Decimal(28, 6)
+  loaded_at    DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([cik, taxonomy, tag, unit, period_end, filing_date, form])
+  @@index([cik, filing_date], map: "idx_raw_fund_cik_filing")
+  @@index([tag], map: "idx_raw_fund_tag")
+  @@index([ticker, filing_date], map: "idx_raw_fund_ticker")
+  @@schema("staging")
+}
+
+model raw_macro {
+  id          BigInt   @id @default(autoincrement())
+  series_id   String   @db.VarChar(30)
+  date        DateTime @db.Date
+  value       Decimal? @db.Decimal(20, 8)
+  ingested_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([series_id, date])
+  @@index([series_id, date], map: "idx_raw_macro_series_date")
+  @@schema("staging")
+}
+
+model raw_prices {
+  id          BigInt   @id @default(autoincrement())
+  ticker      String   @db.VarChar(20)
+  trade_date  DateTime @db.Date
+  open        Decimal? @db.Decimal(18, 6)
+  high        Decimal? @db.Decimal(18, 6)
+  low         Decimal? @db.Decimal(18, 6)
+  close       Decimal? @db.Decimal(18, 6)
+  adj_close   Decimal? @db.Decimal(18, 6)
+  volume      BigInt?
+  ingested_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([ticker, trade_date])
+  @@index([ticker, trade_date], map: "idx_raw_prices_ticker_date")
+  @@schema("staging")
+}
+
+model raw_tiingo_fundamentals {
+  ticker        String   @id(map: "pk_raw_tiingo_fundamentals") @db.VarChar(12)
+  tiingo_ticker String   @db.VarChar(12)
+  raw_payload   Json
+  ingested_at   DateTime @default(now()) @db.Timestamp(6)
+
+  @@schema("staging")
+}

@@ -107,9 +107,9 @@ npm run dev
 ## Day 3: Feature Implementation (The Core)
 *Focus: Querying the Gold/Silver matrix.*
 
-- **0:00 - 2:00**: **Factors Endpoint**.
-  - Створи ендпоінт `GET /api/v1/factors/:ticker`.
-  - Використовуй запит до `Gold` шару, щоб повернути macierz (фактори) для конкретної компанії.
+- **0:00 - 2:00**: **Gold/Silver Endpoints**.
+  - Gold-шар: Feature Store для моделей - створення eндпойнта GET /api/v1/gold/:ticker, який повертає готові до використання фічі для машинного навчання.
+  - Silver-шар: Агрегація концептів - створення eндпойнта GET /api/v1/silver/:ticker, який збирає контекстні дані з фундаментальних, цінових та макроекономічних джерел.
 - **2:00 - 4:00**: **Pagination & Filtering**.
   - Додай `limit` та `offset` (або `cursor`) у запити, щоб API не повертало мільйони рядків за раз.
 
